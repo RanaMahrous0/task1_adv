@@ -1,5 +1,6 @@
 import 'package:assets_audio_player/assets_audio_player.dart';
 import 'package:flutter/material.dart';
+import 'package:task1_adv/pages/playlist.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -10,6 +11,16 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final assetsAudioPlayer = AssetsAudioPlayer();
+  int valueEx = 0;
+  double volumeEx = 0.0;
+  double speedEx = 0.0;
+  final playlistEx = Playlist(audios: [
+    Audio(metas: Metas(title: 'Song 1'), 'assets/1.mp3'),
+    Audio(metas: Metas(title: 'Song 2'), 'assets/2.mp3'),
+    Audio(metas: Metas(title: 'Song 3'), 'assets/3.mp3'),
+    Audio(metas: Metas(title: 'Song 4'), 'assets/4.mp3'),
+  ]);
+
   @override
   void initState() {
     initPlaylist();
@@ -17,14 +28,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   void initPlaylist() async {
-    await assetsAudioPlayer.open(
-        autoStart: false,
-        Playlist(audios: [
-          Audio(metas: Metas(title: 'Song 1'), 'assets/1.mp3'),
-          Audio(metas: Metas(title: 'Song 2'), 'assets/2.mp3'),
-          Audio(metas: Metas(title: 'Song 3'), 'assets/3.mp3'),
-          Audio(metas: Metas(title: 'Song 4'), 'assets/4.mp3'),
-        ]));
+    await assetsAudioPlayer.open(autoStart: false, playlistEx);
+    assetsAudioPlayer.currentPosition.listen((event) {
+      valueEx = event.inSeconds;
+    });
+    assetsAudioPlayer.volume.listen((event) {
+      volumeEx = event;
+    });
+    assetsAudioPlayer.playSpeed.listen((event) {
+      speedEx = event;
+    });
     setState(() {});
   }
 
@@ -33,6 +46,18 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Media Player'),
+        actions: [
+          IconButton(
+              onPressed: () {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => PlaylistPage(
+                              playlist: playlistEx,
+                            )));
+              },
+              icon: const Icon(Icons.playlist_add))
+        ],
       ),
       body: Center(
         child: Column(
@@ -40,7 +65,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             Container(
                 width: 400,
-                height: 400,
+                height: 500,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   color: Colors.blue,
@@ -64,7 +89,7 @@ class _HomePageState extends State<HomePage> {
           setState(() {});
         },
         shape: const CircleBorder(),
-        backgroundColor: Color.fromARGB(255, 235, 224, 236),
+        backgroundColor: const Color.fromARGB(255, 235, 224, 236),
         child: Icon(
           isPlaying ? Icons.pause : Icons.play_arrow,
           color: Colors.white,
@@ -77,7 +102,7 @@ class _HomePageState extends State<HomePage> {
   String convertSeconds(int seconds) {
     String mins = (seconds ~/ 60).toString();
     String secStr = (seconds % 60).toString();
-    return '${mins.padLeft(2, '0')} ${secStr.padLeft(2, '0')}';
+    return '${mins.padLeft(2, '0')} : ${secStr.padLeft(2, '0')}';
   }
 
   Widget myStramBuilder() {
@@ -138,15 +163,73 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(
                   height: 10,
                 ),
+                Column(
+                  children: [
+                    const Text(
+                      'Volume',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SegmentedButton(
+                              segments: const [
+                                ButtonSegment(
+                                    value: 1.0, icon: Icon(Icons.volume_up)),
+                                ButtonSegment(
+                                    value: 0.5, icon: Icon(Icons.volume_down)),
+                                ButtonSegment(
+                                    value: 0.0, icon: Icon(Icons.volume_mute)),
+                              ],
+                              onSelectionChanged: getVolume,
+                              selected: {volumeEx})
+                        ],
+                      ),
+                    ),
+                    const Text(
+                      'Speed',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SegmentedButton(
+                              segments: const [
+                                ButtonSegment(value: 1.0, icon: Text('1X')),
+                                ButtonSegment(value: 4.0, icon: Text('2X')),
+                                ButtonSegment(value: 8.0, icon: Text('3X')),
+                                ButtonSegment(value: 16.0, icon: Text('4X')),
+                              ],
+                              onSelectionChanged: getSpeed,
+                              selected: {speedEx})
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(
+                  height: 10,
+                ),
                 Slider(
-                    activeColor: Colors.white,
-                    inactiveColor: Colors.white,
-                    value:
-                        snapShots.data?.currentPosition.inSeconds.toDouble() ??
-                            0.0,
-                    min: 0,
-                    max: snapShots.data?.duration.inSeconds.toDouble() ?? 0.0,
-                    onChanged: (value) {}),
+                  activeColor: Colors.white,
+                  inactiveColor: Colors.white,
+                  value: valueEx.toDouble(),
+                  min: 0,
+                  max: snapShots.data?.duration.inSeconds.toDouble() ?? 0.0,
+                  onChanged: (value) {
+                    setState(() {
+                      valueEx = value.toInt();
+                    });
+                  },
+                  onChangeEnd: (value) async {
+                    await assetsAudioPlayer
+                        .seek(Duration(seconds: value.toInt()));
+                  },
+                ),
                 const SizedBox(
                   height: 20,
                 ),
@@ -161,5 +244,17 @@ class _HomePageState extends State<HomePage> {
             ),
           );
         });
+  }
+
+  void getSpeed(values) {
+    speedEx = values.first.toDouble();
+    assetsAudioPlayer.setPlaySpeed(speedEx);
+    setState(() {});
+  }
+
+  void getVolume(values) {
+    volumeEx = values.first.toDouble();
+    assetsAudioPlayer.setVolume(volumeEx);
+    setState(() {});
   }
 }
